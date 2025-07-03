@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, RequestHandler } from "express";
 import {
   verifyRefreshToken,
   generateAccessToken,
@@ -12,11 +12,12 @@ import { TokenPayload, JWTSigningPayload } from "../types";
 
 const authRouter = Router();
 
-authRouter.post("/refresh-token", async (req: Request, res: Response) => {
+authRouter.post("/refresh-token", (async (req: Request, res: Response) => {
   const oldRefreshToken = req.cookies.refreshToken;
 
   if (!oldRefreshToken) {
-    return res.status(401).json({ message: "No refresh token provided." });
+    res.status(401).json({ message: "No refresh token provided." });
+    return;
   }
 
   try {
@@ -45,9 +46,10 @@ authRouter.post("/refresh-token", async (req: Request, res: Response) => {
         sameSite: "lax",
         path: "/api/refresh-token",
       });
-      return res.status(403).json({
+      res.status(403).json({
         message: "Invalid or revoked refresh token. Please log in again.",
       });
+      return;
     }
 
     // --- Refresh Token Rotation ---
@@ -87,7 +89,7 @@ authRouter.post("/refresh-token", async (req: Request, res: Response) => {
       sameSite: "lax",
     });
 
-    return res.json({ accessToken: newAccessToken });
+    res.json({ accessToken: newAccessToken });
   } catch (error) {
     console.error("Refresh token error:", error);
 
@@ -97,13 +99,13 @@ authRouter.post("/refresh-token", async (req: Request, res: Response) => {
       sameSite: "lax",
       path: "/api/refresh-token",
     });
-    return res.status(403).json({
+    res.status(403).json({
       message: "Invalid or expired refresh token. Please log in again.",
     });
   }
-});
+}) as RequestHandler);
 
-authRouter.post("/logout", async (req: Request, res: Response) => {
+authRouter.post("/logout", (async (req: Request, res: Response) => {
   const refreshToken = req.cookies.refreshToken;
 
   if (refreshToken) {
@@ -134,69 +136,86 @@ authRouter.post("/logout", async (req: Request, res: Response) => {
     path: "/api/refresh-token",
   });
 
-  return res.status(200).json({ message: "Logged out successfully." });
-});
+  res.status(200).json({ message: "Logged out successfully." });
+}) as RequestHandler);
 
-authRouter.post("/reset-password", async (req: Request, res: Response) => {
-    const { token, email, newPassword } = req.body; 
+authRouter.post("/reset-password", (async (req: Request, res: Response) => {
+  const { token, email, newPassword } = req.body;
 
-    if (!token || !email || !newPassword) {
-        return res.status(400).json({ message: "Missing token, email, or new password." });
+  if (!token || !email || !newPassword) {
+    res.status(400).json({ message: "Missing token, email, or new password." });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      // Log for monitoring, but return generic error for security
+      // Will potentially remove in production
+      console.warn(`Password reset attempt for non-existent email: ${email}`);
+      res
+        .status(400)
+        .json({ message: "Invalid or expired token. Please try again." });
+      return;
     }
 
-    try {
-        const user = await prisma.user.findUnique({ where: { email } });
+    const passwordResetRecord = await prisma.passwordResetToken.findFirst({
+      where: {
+        userId: user.id,
+        expiresAt: {
+          gt: new Date(),
+        },
+        used: false,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-        if (!user) {
-            // Log for monitoring, but return generic error for security
-            // Will potentially remove in production
-            console.warn(`Password reset attempt for non-existent email: ${email}`);
-            return res.status(400).json({ message: "Invalid or expired token. Please try again." });
-        }
-
-        const passwordResetRecord = await prisma.passwordResetToken.findFirst({
-            where: {
-                userId: user.id,
-                expiresAt: {
-                    gt: new Date(), 
-                },
-                used: false, 
-            },
-            orderBy: {
-                createdAt: 'desc', 
-            },
-        });
-
-        if (!passwordResetRecord || !verifyPasswordResetToken(token, passwordResetRecord.tokenHash)) {
-            console.warn(`Invalid or expired password reset token for user ${user.id}`);
-            return res.status(400).json({ message: "Invalid or expired token. Please try again." });
-        }
-
-        // Mark the token as used immediately to prevent replay attacks
-        await prisma.passwordResetToken.update({
-            where: { id: passwordResetRecord.id },
-            data: { used: true },
-        });
-
-        const hashedPassword = await hashPassword(newPassword);
-
-        // Update user's password
-        await prisma.user.update({
-            where: { id: user.id },
-            data: { password: hashedPassword },
-        });
-
-        // Delete all refresh tokens associated with the user
-        await prisma.refreshToken.deleteMany({
-            where: { userId: user.id },
-        });
-        console.log(`All refresh tokens revoked for user ${user.id} after password reset.`);
-
-        return res.status(200).json({ message: "Password reset successfully. Please log in with your new password." });
-
-    } catch (error) {
-        console.error("Error during password reset:", error);
-        return res.status(500).json({ message: "An error occurred during password reset." });
+    if (
+      !passwordResetRecord ||
+      !verifyPasswordResetToken(token, passwordResetRecord.tokenHash)
+    ) {
+      console.warn(
+        `Invalid or expired password reset token for user ${user.id}`
+      );
+      res
+        .status(400)
+        .json({ message: "Invalid or expired token. Please try again." });
+      return;
     }
-});
+
+    // Mark the token as used immediately to prevent replay attacks
+    await prisma.passwordResetToken.update({
+      where: { id: passwordResetRecord.id },
+      data: { used: true },
+    });
+
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update user's password
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword },
+    });
+
+    // Delete all refresh tokens associated with the user
+    await prisma.refreshToken.deleteMany({
+      where: { userId: user.id },
+    });
+    console.log(
+      `All refresh tokens revoked for user ${user.id} after password reset.`
+    );
+
+    res.status(200).json({
+      message:
+        "Password reset successfully. Please log in with your new password.",
+    });
+  } catch (error) {
+    console.error("Error during password reset:", error);
+    res
+      .status(500)
+      .json({ message: "An error occurred during password reset." });
+  }
+}) as RequestHandler);
 export default authRouter;
