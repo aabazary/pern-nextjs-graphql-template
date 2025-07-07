@@ -1,3 +1,4 @@
+/// <reference path="./express.d.ts" />
 import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
 import { ApolloServer } from "@apollo/server";
@@ -10,13 +11,21 @@ import cookieParser from "cookie-parser";
 
 import typeDefs from "./graphql/schema";
 import resolvers from "./graphql/resolvers";
-import { MyContext, AuthUser } from "./types";
+import type { MyContext, AuthUser } from "./types/context";
 
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
 import configurePassport from "./config/passport";
 import authRouter from "./routes/auth";
-import prisma from "./prisma/db";
+
+import { MikroORM, EntityManager } from '@mikro-orm/core';
+import mikroOrmConfig from '../mikro-orm.config';
+
+declare module 'express-serve-static-core' {
+  interface Request {
+    em: EntityManager;
+  }
+}
 
 configurePassport();
 
@@ -29,7 +38,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(passport.initialize());
 
-app.use((req: Request, res: Response, next: NextFunction) => {
+app.use((req, res, next) => {
   passport.authenticate(
     "jwt",
     { session: false },
@@ -61,6 +70,16 @@ const server = new ApolloServer({
 });
 
 async function startServer() {
+  // Initialize MikroORM
+  const orm = await MikroORM.init(mikroOrmConfig);
+  const em = orm.em.fork();
+
+  // Add MikroORM EntityManager to each request BEFORE routes
+  app.use((req, res, next) => {
+    req.em = em.fork();
+    next();
+  });
+
   await server.start();
 
   // GraphQL endpoint
@@ -71,6 +90,7 @@ async function startServer() {
         req: req,
         res: res,
         user: (req as any).user as AuthUser | undefined,
+        em: em.fork(), // Provide a forked EntityManager per request
       }),
     })
   );
@@ -79,7 +99,7 @@ async function startServer() {
   app.get("/health", async (req, res) => {
     try {
       // Check database connectivity
-      await prisma.$queryRaw`SELECT 1`;
+      await em.getConnection().execute('SELECT 1');
       res.status(200).json({
         status: "healthy",
         message: "Backend and database are healthy!",
@@ -102,18 +122,7 @@ async function startServer() {
   });
 }
 
-// Database connection and server start
-prisma
-  .$connect()
-  .then(() => {
-    console.log("🎉 Connected to PostgreSQL database!");
-    startServer();
-  })
-  .catch((err: unknown) => {
-    if (err instanceof Error) {
-      console.error("❌ Database connection failed:", err.message);
-    } else {
-      console.error("❌ Database connection failed:", err);
-    }
-    process.exit(1);
-  });
+startServer().catch((err) => {
+  console.error("❌ Server failed to start:", err);
+  process.exit(1);
+});

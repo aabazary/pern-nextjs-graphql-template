@@ -15,13 +15,16 @@
     "clean": "npm run clean:frontend && npm run clean:backend",
     "clean:frontend": "cd front-end && rm -rf .next node_modules",
     "clean:backend": "cd back-end && rm -rf dist node_modules",
-    "db:generate": "cd back-end && npm run db:generate",
-    "db:migrate": "cd back-end && npm run db:migrate",
+    "db:generate": "mikro-orm schema:update",
+    "db:migrate": "mikro-orm migration:up",
     "db:seed": "cd back-end && npm run db:seed",
     "db:reset": "cd back-end && npm run db:reset",
-    "db:studio": "cd back-end && npm run db:studio"
+    "db:studio": "cd back-end && npm run db:studio",
+    "mikro-orm": "mikro-orm",
+    "db:create-migration": "mikro-orm migration:create"
   },
   "devDependencies": {
+    "@types/express": "^5.0.3",
     "concurrently": "^9.2.0",
     "wait-on": "^8.0.3"
   },

@@ -1,6 +1,6 @@
 import { Strategy as JwtStrategy, ExtractJwt, StrategyOptionsWithoutRequest } from 'passport-jwt'; 
 import passport from 'passport';
-import prisma from '../prisma/db'; 
+// import prisma from '../prisma/db'; 
 
 
 interface JwtPayload {
@@ -33,12 +33,13 @@ const configurePassport = () => {
   passport.use(
     new JwtStrategy(opts, async (jwt_payload: JwtPayload, done) => {
       try {
-        const user = await prisma.user.findUnique({
-          where: { id: jwt_payload.userId },
-        });
+        // Comment out all Prisma usages for now
+        // const user = await prisma.user.findUnique({
+        //   where: { id: jwt_payload.userId },
+        // });
 
-        if (user) {
-          return done(null, user); 
+        if (false) {
+          return done(null, false); // Placeholder for user
         } else {
           return done(null, false, { message: 'User not found' }); 
         }

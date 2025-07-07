@@ -1,7 +1,7 @@
-import prisma from '../../prisma/db';
 import { GraphQLError } from 'graphql';
-import { MyContext } from '../../types'; 
-import { Role } from '@prisma/client'; 
+import type { MyContext } from '../../types/context';
+import { User } from '../../entities/User';
+import { Role } from '../../entities/Role';
 
 const Query = {
   users: async (parent: any, args: any, context: MyContext) => {
@@ -17,7 +17,7 @@ const Query = {
         extensions: { code: 'FORBIDDEN' },
       });
     }
-    return prisma.user.findMany();
+    return await context.em.find(User, {});
   },
   me: async (parent: any, args: any, context: MyContext) => {
     // Authorization check: User must be logged in to view their own profile
@@ -26,9 +26,7 @@ const Query = {
         extensions: { code: 'UNAUTHENTICATED' },
       });
     }
-    const user = await prisma.user.findUnique({
-      where: { id: context.user.id },
-    });
+    const user = await context.em.findOne(User, { id: context.user.id });
     if (!user) {
       throw new GraphQLError('User not found.', {
         extensions: { code: 'NOT_FOUND' },

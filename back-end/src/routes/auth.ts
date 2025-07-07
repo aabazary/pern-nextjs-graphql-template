@@ -7,14 +7,15 @@ import {
   verifyPasswordResetToken,
   hashPassword,
 } from "../utils/authFunctions";
-import prisma from "../prisma/db";
-import { TokenPayload, JWTSigningPayload } from "../types";
+import { TokenPayload, JWTSigningPayload } from "../types/tokens";
+import { User } from '../entities/User';
+import { RefreshToken } from '../entities/RefreshToken';
+import { PasswordResetToken } from '../entities/PasswordResetToken';
 
 const authRouter = Router();
 
-
-
 authRouter.post("/refresh-token", (async (req: Request, res: Response) => {
+  const em = (req as any).em;
   const oldRefreshToken = req.cookies.refreshToken;
 
   if (!oldRefreshToken) {
@@ -28,17 +29,10 @@ authRouter.post("/refresh-token", (async (req: Request, res: Response) => {
 
     const hashedOldRefreshToken = await hashToken(oldRefreshToken);
 
-    const refreshTokenRecord = await prisma.refreshToken.findUnique({
-      where: {
-        tokenHash: hashedOldRefreshToken,
-      },
-      include: {
-        user: true,
-      },
-    });
+    const refreshTokenRecord = await em.findOne(RefreshToken, { tokenHash: hashedOldRefreshToken }, { populate: ['user'] });
 
     // Check if the record exists and belongs to the correct user
-    if (!refreshTokenRecord || refreshTokenRecord.userId !== userId) {
+    if (!refreshTokenRecord || refreshTokenRecord.user.id !== userId) {
       console.warn(
         "Refresh token not found or mismatch in DB. Potential reuse or invalid token."
       );
@@ -70,18 +64,11 @@ authRouter.post("/refresh-token", (async (req: Request, res: Response) => {
     ) as TokenPayload;
     const newExpiresAt = new Date(newRefreshTokenPayload.exp * 1000);
 
-    await prisma.refreshToken.update({
-      where: { id: refreshTokenRecord.id },
-      data: {
-        tokenHash: hashedNewRefreshToken,
-        expiresAt: newExpiresAt,
-        userAgent:
-          (req.headers["user-agent"] as string) ||
-          refreshTokenRecord.userAgent ||
-          "Unknown",
-        ipAddress: req.ip || refreshTokenRecord.ipAddress || "Unknown",
-      },
-    });
+    refreshTokenRecord.tokenHash = hashedNewRefreshToken;
+    refreshTokenRecord.expiresAt = newExpiresAt;
+    refreshTokenRecord.userAgent = req.headers["user-agent"] as string || refreshTokenRecord.userAgent || "Unknown";
+    refreshTokenRecord.ipAddress = req.ip || refreshTokenRecord.ipAddress || "Unknown";
+    await em.persistAndFlush(refreshTokenRecord);
 
     res.cookie("refreshToken", newRefreshToken, {
       httpOnly: true,
@@ -125,6 +112,7 @@ authRouter.post("/refresh-token", (async (req: Request, res: Response) => {
 }) as RequestHandler);
 
 authRouter.post("/logout", (async (req: Request, res: Response) => {
+  const em = (req as any).em;
   const refreshToken = req.cookies.refreshToken;
 
   if (refreshToken) {
@@ -134,12 +122,7 @@ authRouter.post("/logout", (async (req: Request, res: Response) => {
 
       const hashedIncomingToken = await hashToken(refreshToken);
 
-      await prisma.refreshToken.deleteMany({
-        where: {
-          tokenHash: hashedIncomingToken,
-          userId: userId,
-        },
-      });
+      await em.nativeDelete(RefreshToken, { tokenHash: hashedIncomingToken, user: userId });
       console.log(`User ${userId} specific refresh token revoked (via hash).`);
     } catch (error) {
       console.warn(
@@ -166,14 +149,16 @@ authRouter.post("/logout", (async (req: Request, res: Response) => {
 }) as RequestHandler);
 
 authRouter.post("/reset-password", (async (req: Request, res: Response) => {
+  const em = (req as any).em;
   const { token, email, newPassword } = req.body;
 
   if (!token || !email || !newPassword) {
     res.status(400).json({ message: "Missing token, email, or new password." });
+    return;
   }
 
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await em.findOne(User, { email });
 
     if (!user) {
       // Log for monitoring, but return generic error for security
@@ -185,18 +170,11 @@ authRouter.post("/reset-password", (async (req: Request, res: Response) => {
       return;
     }
 
-    const passwordResetRecord = await prisma.passwordResetToken.findFirst({
-      where: {
-        userId: user.id,
-        expiresAt: {
-          gt: new Date(),
-        },
-        used: false,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+    const passwordResetRecord = await em.findOne(PasswordResetToken, {
+      user: user.id,
+      expiresAt: { $gt: new Date() },
+      used: false,
+    }, { orderBy: { createdAt: 'desc' } });
 
     if (
       !passwordResetRecord ||
@@ -212,23 +190,17 @@ authRouter.post("/reset-password", (async (req: Request, res: Response) => {
     }
 
     // Mark the token as used immediately to prevent replay attacks
-    await prisma.passwordResetToken.update({
-      where: { id: passwordResetRecord.id },
-      data: { used: true },
-    });
+    passwordResetRecord.used = true;
+    await em.persistAndFlush(passwordResetRecord);
 
     const hashedPassword = await hashPassword(newPassword);
 
     // Update user's password
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { password: hashedPassword },
-    });
+    user.password = hashedPassword;
+    await em.persistAndFlush(user);
 
     // Delete all refresh tokens associated with the user
-    await prisma.refreshToken.deleteMany({
-      where: { userId: user.id },
-    });
+    await em.nativeDelete(RefreshToken, { user: user.id });
     console.log(
       `All refresh tokens revoked for user ${user.id} after password reset.`
     );
@@ -244,4 +216,5 @@ authRouter.post("/reset-password", (async (req: Request, res: Response) => {
       .json({ message: "An error occurred during password reset." });
   }
 }) as RequestHandler);
+
 export default authRouter;

@@ -4,11 +4,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node dist/index.js",
+    "db:seed": "npx ts-node src/seed.ts",
     "dev": "nodemon --exec ts-node src/index.ts",
-    "build": "tsc",
-    "prisma:generate": "npx prisma generate",
-    "prisma:migrate": "npx prisma migrate dev",
-    "prisma:seed": "ts-node --project tsconfig.json src/prisma/seed.ts"
+    "build": "tsc"
   },
   "keywords": [],
   "author": "",
@@ -17,7 +15,12 @@
   "dependencies": {
     "@apollo/server": "^4.12.2",
     "@as-integrations/express5": "^1.1.0",
-    "@prisma/client": "^6.11.0",
+    "@mikro-orm/cli": "^6.4.16",
+    "@mikro-orm/core": "^6.4.16",
+    "@mikro-orm/migrations": "^6.4.16",
+    "@mikro-orm/postgresql": "^6.4.16",
+    "@mikro-orm/reflection": "^6.4.16",
+    "@types/uuid": "^10.0.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -29,21 +32,20 @@
     "nodemailer": "^7.0.4",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
     "@types/cookie-parser": "^1.4.9",
     "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.3",
     "@types/graphql": "^14.2.3",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^24.0.7",
+    "@types/node": "^24.0.10",
     "@types/nodemailer": "^6.4.17",
     "@types/passport": "^1.0.17",
     "@types/passport-jwt": "^4.0.1",
     "nodemon": "^3.1.10",
-    "prisma": "^6.11.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }

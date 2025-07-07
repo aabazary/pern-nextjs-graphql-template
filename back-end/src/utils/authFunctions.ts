@@ -1,9 +1,9 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { TokenPayload, JWTSigningPayload, MyContext } from "../types";
-import { Role } from "@prisma/client";
-import prisma from "../prisma/db";
+import { TokenPayload, JWTSigningPayload } from "../types/tokens";
 import crypto from 'crypto';
+import { RefreshToken } from '../entities/RefreshToken';
+import type { MyContext } from "../types/context";
 
 export const hashPassword = async (password: string): Promise<string> => {
   const saltRounds = 12;
@@ -77,7 +77,7 @@ export const verifyPasswordResetToken = (plainTextToken: string, hashedTokenFrom
 };
 
 export const issueTokensAndSetCookie = async (
-  user: { id: string; role: Role; email: string }, 
+  user: { id: string; role: string; email: string }, 
   context: MyContext,
 ): Promise<string> => { 
   console.log('Issuing tokens for user:', user.id);
@@ -91,33 +91,24 @@ export const issueTokensAndSetCookie = async (
   const expiresAt = new Date(refreshTokenPayload.exp * 1000); 
 
   // Clean up old expired tokens and old bcrypt tokens for this user
-  await prisma.refreshToken.deleteMany({
-    where: {
-      userId: user.id,
-      OR: [
-        {
-          expiresAt: {
-            lt: new Date()
-          }
-        },
-        {
-          tokenHash: {
-            startsWith: '$2b$' // Old bcrypt tokens
-          }
-        }
-      ]
-    }
+  await context.em.nativeDelete(RefreshToken, {
+    user: user.id,
+    $or: [
+      { expiresAt: { $lt: new Date() } },
+      { tokenHash: { $like: '$2b$%' } }
+    ]
   });
   
-  await prisma.refreshToken.create({
-    data: {
-      tokenHash: hashedRefreshToken,
-      userId: user.id,
-      expiresAt: expiresAt,
-      userAgent: context.req.headers['user-agent'] as string || 'Unknown',
-      ipAddress: context.req.ip || 'Unknown',
-    },
+  const newRefreshToken = context.em.create(RefreshToken, {
+    tokenHash: hashedRefreshToken,
+    user: user.id,
+    expiresAt: expiresAt,
+    userAgent: context.req.headers['user-agent'] as string || 'Unknown',
+    ipAddress: context.req.ip || 'Unknown',
+    createdAt: new Date(),
+    updatedAt: new Date(),
   });
+  await context.em.persistAndFlush(newRefreshToken);
 
   context.res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
