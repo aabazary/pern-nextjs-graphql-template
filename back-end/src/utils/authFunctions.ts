@@ -18,15 +18,17 @@ export const comparePassword = async (
 };
 
 export const hashToken = async (token: string): Promise<string> => {
-  const saltRounds = 12;
-  return bcrypt.hash(token, saltRounds);
+  // Use SHA-256 for deterministic hashing of tokens
+  return crypto.createHash('sha256').update(token).digest('hex');
 };
 
 export const compareToken = async (
   token: string,
   hash: string
 ): Promise<boolean> => {
-  return bcrypt.compare(token, hash);
+  // For SHA-256, we just compare the hashes directly
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  return tokenHash === hash;
 };
 
 export const generateAccessToken = (payload: JWTSigningPayload): string => {
@@ -78,6 +80,8 @@ export const issueTokensAndSetCookie = async (
   user: { id: string; role: Role; email: string }, 
   context: MyContext,
 ): Promise<string> => { 
+  console.log('Issuing tokens for user:', user.id);
+  
   const accessToken = generateAccessToken({ userId: user.id, role: user.role } as JWTSigningPayload);
   const refreshToken = generateRefreshToken({ userId: user.id, role: user.role } as JWTSigningPayload);
 
@@ -86,6 +90,25 @@ export const issueTokensAndSetCookie = async (
   const refreshTokenPayload = verifyRefreshToken(refreshToken) as TokenPayload;
   const expiresAt = new Date(refreshTokenPayload.exp * 1000); 
 
+  // Clean up old expired tokens and old bcrypt tokens for this user
+  await prisma.refreshToken.deleteMany({
+    where: {
+      userId: user.id,
+      OR: [
+        {
+          expiresAt: {
+            lt: new Date()
+          }
+        },
+        {
+          tokenHash: {
+            startsWith: '$2b$' // Old bcrypt tokens
+          }
+        }
+      ]
+    }
+  });
+  
   await prisma.refreshToken.create({
     data: {
       tokenHash: hashedRefreshToken,
@@ -98,10 +121,18 @@ export const issueTokensAndSetCookie = async (
 
   context.res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production', 
+    secure: false, // Set to false for development (HTTP)
     sameSite: 'lax', 
     maxAge: 7 * 24 * 60 * 60 * 1000, 
-    path: '/api/refresh-token' 
+    path: '/'
+  });
+  
+  context.res.cookie('accessToken', accessToken, {
+    httpOnly: true,
+    secure: false, // Set to false for development (HTTP)
+    sameSite: 'lax', 
+    maxAge: 15 * 60 * 1000, // 15 minutes
+    path: '/'
   });
 
   return accessToken;

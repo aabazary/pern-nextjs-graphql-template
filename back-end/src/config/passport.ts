@@ -16,7 +16,16 @@ const configurePassport = () => {
   }
 
   const opts: StrategyOptionsWithoutRequest = { 
-    jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+    jwtFromRequest: (req) => {
+      // Try to get token from Authorization header first (for backward compatibility)
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        return authHeader.substring(7);
+      }
+      
+      // Then try to get from cookies
+      return req.cookies?.accessToken || null;
+    },
     secretOrKey: process.env.JWT_SECRET, 
   
   };

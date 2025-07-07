@@ -76,8 +76,23 @@ async function startServer() {
   );
 
   // Health check for backend
-  app.get("/health", (req, res) => {
-    res.status(200).send("Backend is healthy!");
+  app.get("/health", async (req, res) => {
+    try {
+      // Check database connectivity
+      await prisma.$queryRaw`SELECT 1`;
+      res.status(200).json({
+        status: "healthy",
+        message: "Backend and database are healthy!",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Health check failed:", error);
+      res.status(503).json({
+        status: "unhealthy",
+        message: "Database connection failed",
+        timestamp: new Date().toISOString()
+      });
+    }
   });
 
   const PORT = process.env.PORT || 4000;

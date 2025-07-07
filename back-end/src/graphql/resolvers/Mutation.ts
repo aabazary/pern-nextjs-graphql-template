@@ -46,6 +46,8 @@ const Mutation = {
     { email, password }: any,
     context: MyContext
   ): Promise<AuthPayload> => {
+    console.log('Login attempt for email:', email);
+    
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       throw new GraphQLError('Invalid credentials.', {
@@ -60,7 +62,9 @@ const Mutation = {
       });
     }
 
+    console.log('Password valid, issuing tokens for user:', user.id);
     const accessToken = await issueTokensAndSetCookie(user, context);
+    console.log('Tokens issued successfully');
 
     return { token: accessToken, user };
   },

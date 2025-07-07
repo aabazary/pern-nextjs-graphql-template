@@ -12,6 +12,8 @@ import { TokenPayload, JWTSigningPayload } from "../types";
 
 const authRouter = Router();
 
+
+
 authRouter.post("/refresh-token", (async (req: Request, res: Response) => {
   const oldRefreshToken = req.cookies.refreshToken;
 
@@ -42,9 +44,9 @@ authRouter.post("/refresh-token", (async (req: Request, res: Response) => {
       );
       res.clearCookie("refreshToken", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: false,
         sameSite: "lax",
-        path: "/api/refresh-token",
+        path: "/",
       });
       res.status(403).json({
         message: "Invalid or revoked refresh token. Please log in again.",
@@ -83,21 +85,38 @@ authRouter.post("/refresh-token", (async (req: Request, res: Response) => {
 
     res.cookie("refreshToken", newRefreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: false,
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: "/api/refresh-token",
+      path: "/",
+      sameSite: "lax",
+    });
+
+    res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      secure: false,
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      path: "/",
       sameSite: "lax",
     });
 
     res.json({ accessToken: newAccessToken });
   } catch (error) {
     console.error("Refresh token error:", error);
+    if (error instanceof Error) {
+      console.error("Error details:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+    } else {
+      console.error("Unknown error type:", error);
+    }
 
     res.clearCookie("refreshToken", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: false,
       sameSite: "lax",
-      path: "/api/refresh-token",
+      path: "/",
     });
     res.status(403).json({
       message: "Invalid or expired refresh token. Please log in again.",
@@ -131,9 +150,16 @@ authRouter.post("/logout", (async (req: Request, res: Response) => {
 
   res.clearCookie("refreshToken", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: false,
     sameSite: "lax",
-    path: "/api/refresh-token",
+    path: "/",
+  });
+
+  res.clearCookie("accessToken", {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    path: "/",
   });
 
   res.status(200).json({ message: "Logged out successfully." });
