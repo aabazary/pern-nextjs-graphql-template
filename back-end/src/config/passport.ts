@@ -1,7 +1,8 @@
 import { Strategy as JwtStrategy, ExtractJwt, StrategyOptionsWithoutRequest } from 'passport-jwt'; 
 import passport from 'passport';
-// import prisma from '../prisma/db'; 
-
+import { MikroORM } from '@mikro-orm/core';
+import mikroOrmConfig from '../../mikro-orm.config';
+import { User } from '../entities/User';
 
 interface JwtPayload {
   userId: string;
@@ -10,10 +11,15 @@ interface JwtPayload {
   exp: number; 
 }
 
-const configurePassport = () => {
+let orm: MikroORM;
+
+const configurePassport = async () => {
   if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET environment variable is not defined for Passport.js JWT Strategy.');
   }
+
+  // Initialize MikroORM
+  orm = await MikroORM.init(mikroOrmConfig);
 
   const opts: StrategyOptionsWithoutRequest = { 
     jwtFromRequest: (req) => {
@@ -33,13 +39,11 @@ const configurePassport = () => {
   passport.use(
     new JwtStrategy(opts, async (jwt_payload: JwtPayload, done) => {
       try {
-        // Comment out all Prisma usages for now
-        // const user = await prisma.user.findUnique({
-        //   where: { id: jwt_payload.userId },
-        // });
+        const em = orm.em.fork();
+        const user = await em.findOne(User, { id: jwt_payload.userId });
 
-        if (false) {
-          return done(null, false); // Placeholder for user
+        if (user) {
+          return done(null, { id: user.id, email: user.email, role: user.role });
         } else {
           return done(null, false, { message: 'User not found' }); 
         }

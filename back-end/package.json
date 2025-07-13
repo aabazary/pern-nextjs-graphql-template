@@ -6,7 +6,13 @@
     "start": "node dist/index.js",
     "db:seed": "npx ts-node src/seed.ts",
     "dev": "nodemon --exec ts-node src/index.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "migration:create": "mikro-orm migration:create",
+    "migration:up": "mikro-orm migration:up",
+    "migration:down": "mikro-orm migration:down",
+    "schema:create": "mikro-orm schema:create",
+    "schema:drop": "mikro-orm schema:drop",
+    "schema:update": "mikro-orm schema:update"
   },
   "keywords": [],
   "author": "",

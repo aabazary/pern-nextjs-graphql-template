@@ -10,5 +10,11 @@ export default defineConfig({
   migrations: {
     path: './src/migrations'
   },
-  debug: process.env.NODE_ENV !== 'production',
+  debug: false,
+  logger: (message) => {
+    // Only log errors and warnings, not discovery info
+    if (message.includes('error') || message.includes('warn')) {
+      console.log(message);
+    }
+  },
 }); 

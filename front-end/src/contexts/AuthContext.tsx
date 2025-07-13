@@ -118,17 +118,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializeAuth();
   }, []);
 
-  // Refresh token when user returns to tab
-  useEffect(() => {
-    const handleFocus = async () => {
-      if (user) {
-        await refreshToken();
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [user]);
+  // Removed the focus event listener that was causing excessive database queries
+  // Token refresh is now handled by Apollo Client error handling
 
   const login = (token: string, userData: User) => {
     setUser(userData);

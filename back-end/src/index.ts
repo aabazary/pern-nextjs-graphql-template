@@ -27,8 +27,6 @@ declare module 'express-serve-static-core' {
   }
 }
 
-configurePassport();
-
 const app = express();
 const httpServer = http.createServer(app);
 
@@ -38,27 +36,10 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(passport.initialize());
 
-app.use((req, res, next) => {
-  passport.authenticate(
-    "jwt",
-    { session: false },
-    (err: any, user: AuthUser | false, info: any) => {
-      if (err) {
-        console.error("Passport JWT authentication error:", err);
-        return next(err);
-      }
-      if (user) {
-        (req as any).user = user;
-      }
-      next();
-    }
-  )(req, res, next);
-});
+  // REST API Routes
+  app.use("/api", authRouter);
 
-// REST API Routes
-app.use("/api", authRouter);
-
-// Apollo Server Setup
+  // Apollo Server Setup
 const schema = makeExecutableSchema({
   typeDefs,
   resolvers,
@@ -74,6 +55,9 @@ async function startServer() {
   const orm = await MikroORM.init(mikroOrmConfig);
   const em = orm.em.fork();
 
+  // Configure Passport
+  await configurePassport();
+
   // Add MikroORM EntityManager to each request BEFORE routes
   app.use((req, res, next) => {
     req.em = em.fork();
@@ -82,9 +66,25 @@ async function startServer() {
 
   await server.start();
 
-  // GraphQL endpoint
+  // GraphQL endpoint with authentication
   app.use(
     "/graphql",
+    (req, res, next) => {
+      passport.authenticate(
+        "jwt",
+        { session: false },
+        (err: any, user: AuthUser | false, info: any) => {
+          if (err) {
+            console.error("Passport JWT authentication error:", err);
+            return next(err);
+          }
+          if (user) {
+            (req as any).user = user;
+          }
+          next();
+        }
+      )(req, res, next);
+    },
     expressMiddleware(server, {
       context: async ({ req, res }): Promise<MyContext> => ({
         req: req,
@@ -113,6 +113,12 @@ async function startServer() {
         timestamp: new Date().toISOString()
       });
     }
+  });
+
+  // Add a global error handler
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    console.error("Global error handler:", err);
+    res.status(500).json({ error: "Internal server error" });
   });
 
   const PORT = process.env.PORT || 4000;
