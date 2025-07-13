@@ -6,8 +6,9 @@
     "start": "node dist/index.js",
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
-    "db:generate": "npx prisma generate",
-    "db:migrate": "npx prisma migrate dev",
+    "db:generate": "npx prisma generate --schema=./prisma",
+    "db:push": "npx prisma db push --schema=./prisma",
+    "db:reset": "npx prisma db push --force-reset --schema=./prisma",
     "db:seed": "ts-node --project tsconfig.json src/prisma/seed.ts"
   },
   "keywords": [],

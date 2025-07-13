@@ -1,0 +1,6 @@
+enum Role {
+  UNREGISTERED 
+  REGISTERED   
+  OWNER        
+  SUPERADMIN   
+}
