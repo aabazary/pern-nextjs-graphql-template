@@ -6,9 +6,9 @@
     "start": "node dist/index.js",
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
-    "prisma:generate": "npx prisma generate",
-    "prisma:migrate": "npx prisma migrate dev",
-    "prisma:seed": "ts-node --project tsconfig.json src/prisma/seed.ts"
+    "db:generate": "npx prisma generate",
+    "db:migrate": "npx prisma migrate dev",
+    "db:seed": "ts-node --project tsconfig.json src/prisma/seed.ts"
   },
   "keywords": [],
   "author": "",
@@ -17,7 +17,7 @@
   "dependencies": {
     "@apollo/server": "^4.12.2",
     "@as-integrations/express5": "^1.1.0",
-    "@prisma/client": "^6.11.0",
+    "@prisma/client": "^6.11.1",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -43,7 +43,7 @@
     "@types/passport": "^1.0.17",
     "@types/passport-jwt": "^4.0.1",
     "nodemon": "^3.1.10",
-    "prisma": "^6.11.0",
+    "prisma": "^6.11.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }
