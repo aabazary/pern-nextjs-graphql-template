@@ -1,10 +1,21 @@
 "use client";
 
+import { Suspense } from "react";
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+export const dynamic = "force-dynamic";
+
 export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ActualResetPasswordPage />
+    </Suspense>
+  );
+}
+
+function ActualResetPasswordPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -67,8 +78,12 @@ export default function ResetPasswordPage() {
         const data = await response.json();
         setError(data.message || 'Failed to reset password');
       }
-    } catch (err: any) {
-      setError('Failed to reset password. Please try again.');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || 'Failed to reset password. Please try again.');
+      } else {
+        setError('Failed to reset password. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

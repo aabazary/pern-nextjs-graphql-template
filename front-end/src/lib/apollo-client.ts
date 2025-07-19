@@ -9,9 +9,9 @@ const httpLink = createHttpLink({
 
 // Error link for token refresh
 const createErrorLink = () => {
-  return onError(({ graphQLErrors, networkError, operation, forward }) => {
+  return onError(({ graphQLErrors, networkError }) => {
     if (graphQLErrors) {
-      for (let err of graphQLErrors) {
+      for (const err of graphQLErrors) {
         console.log('GraphQL Error:', err.message, err.extensions);
         // Handle expired token
         if (err.extensions?.code === 'UNAUTHENTICATED' && err.message.includes('logged in')) {
@@ -28,7 +28,7 @@ const createErrorLink = () => {
               }
               throw new Error('Token refresh failed');
             })
-            .then(data => {
+            .then(() => {
               console.log('Token refresh successful, new token received');
               // Reload page to update auth context
               if (typeof window !== 'undefined') {

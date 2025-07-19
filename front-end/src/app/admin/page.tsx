@@ -5,6 +5,7 @@ import { useQuery } from '@apollo/client';
 import { GET_USERS_QUERY } from '@/graphql/queries';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { User } from '@/types';
 import { formatDate } from '@/utils/dateUtils';
 
 export default function AdminPage() {
@@ -88,7 +89,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-[var(--color-bg-secondary)] divide-y divide-[var(--color-border-primary)]">
-                    {users.map((user: any) => (
+                    {users.map((user: User) => (
                       <tr key={user.id} className="hover:bg-[var(--color-bg-tertiary)] transition-colors duration-200">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text-primary)]">
                           {user.email}
