@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import apiBaseUrl from '@/utils/apiBaseUrl';
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ function ActualResetPasswordPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:4000/api/reset-password', {
+      const response = await fetch(`${apiBaseUrl}/api/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

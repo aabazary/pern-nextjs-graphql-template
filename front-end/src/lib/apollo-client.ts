@@ -1,9 +1,10 @@
 import { ApolloClient, InMemoryCache, createHttpLink, from } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { Observable } from '@apollo/client/utilities';
+import apiBaseUrl from '@/utils/apiBaseUrl';
 
 const httpLink = createHttpLink({
-  uri: 'http://localhost:4000/graphql',
+  uri: `${apiBaseUrl}/graphql`,
   credentials: 'include', // Send all cookies including access token
 });
 
@@ -17,7 +18,7 @@ const createErrorLink = () => {
         if (err.extensions?.code === 'UNAUTHENTICATED' && err.message.includes('logged in')) {
           console.log('Attempting to refresh token...');
           return new Observable(observer => {
-            fetch('http://localhost:4000/api/refresh-token', {
+            fetch(`${apiBaseUrl}/api/refresh-token`, {
               method: 'POST',
               credentials: 'include',
             })

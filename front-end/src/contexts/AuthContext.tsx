@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, AuthContextType } from '@/types';
+import apiBaseUrl from '@/utils/apiBaseUrl';
 
 type GraphQLErrorWithExtensions = { extensions?: { code?: string } };
 
@@ -25,7 +26,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refreshToken = async (): Promise<boolean> => {
     try {
-      const response = await fetch('http://localhost:4000/api/refresh-token', {
+      const response = await fetch(`${apiBaseUrl}/api/refresh-token`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -46,7 +47,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const response = await fetch('http://localhost:4000/graphql', {
+        const response = await fetch(`${apiBaseUrl}/graphql`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -77,7 +78,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const success = await refreshToken();
           if (success) {
             // Retry query after token refresh
-            const retryResponse = await fetch('http://localhost:4000/graphql', {
+            const retryResponse = await fetch(`${apiBaseUrl}/graphql`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

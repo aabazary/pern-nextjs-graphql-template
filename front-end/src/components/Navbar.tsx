@@ -9,6 +9,7 @@ import ThemeToggle from './ThemeToggle';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthFormType } from '@/types';
+import apiBaseUrl from '@/utils/apiBaseUrl';
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -29,7 +30,7 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       // Call logout API endpoint
-      const response = await fetch('http://localhost:4000/api/logout', {
+      const response = await fetch(`${apiBaseUrl}/api/logout`, {
         method: 'POST',
         credentials: 'include',
       });

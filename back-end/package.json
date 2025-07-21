@@ -9,7 +9,8 @@
     "db:generate": "npx prisma generate --schema=./prisma",
     "db:push": "npx prisma db push --schema=./prisma",
     "db:reset": "npx prisma db push --force-reset --schema=./prisma",
-    "db:seed": "ts-node --project tsconfig.json src/prisma/seed.ts"
+    "db:seed": "ts-node --project tsconfig.json src/prisma/seed.ts",
+    "db:init": "npm run db:push && npm run db:seed"
   },
   "keywords": [],
   "author": "",
